@@ -1,0 +1,56 @@
+device: cpu
+seed: 42
+
+data:
+  isthrough: true
+  folder: /home/scxsz1/zsh/Learning/MARL/PSTT/data/instances1/run3
+  file: muni-fi-spr17.xml
+
+method:
+  name: RPMAPPO
+  epoch: 50
+  discount: 0.5
+  quickrun: false
+
+config:
+  technique: RPMAPPO
+  author: ZSH
+  institution: UNNC
+  country: China
+  include_students: false
+  report: false
+  output: /home/scxsz1/zsh/Learning/MARL/PSTT/MARL/RPMAPPO/results
+
+train:
+  env_name: RPMAPPO
+  device: 'cuda:1'
+  discount: 0.5 # works when method.name in [CGCS,Random]
+  random_warmup: 200
+  warmup_episode: 250
+  total_episodes: 200
+  obs_shape: None
+  action_dim: 10
+  sched_action_dim: 10
+  sched_actor_lr: 1e-4
+  sched_critic_lr: 1e-3
+  steps_clip: 20
+  sched_hidden_dim: 512
+  gamma: 0.99
+  sched_gamma: 0.99
+  lmbda: 0.97
+  sched_lmbda: 0.97
+  eps: 0.1
+  sched_eps: 0.1
+  sched:
+    gamma: 0.95
+    learning_rate: 0.7
+    max_epsilon: 1.0
+    min_epsilon: 0.05
+    decay_rate: 0.01
+  mappo:
+    gamma: 0.99
+    lmbda: 0.97
+    eps: 0.1
+    hidden_dim: 256
+    actor_lr: 1e-4
+    critic_lr: 1e-3

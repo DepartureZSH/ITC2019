@@ -1,0 +1,58 @@
+from math import inf
+import numpy as np
+from gymnasium.spaces import Discrete
+
+class scheduler_level:
+    def __init__(self, class_order):
+        # 状态：全局课表状态 + 哪些课还没排 + 这些课的特征（学生人数、优先级、难排程度估计等）。
+        self.observe_space = np.array([])
+        # 动作：从“未排课程集合”里选出“下一门要排的课 course_i”。
+
+class agent_class:
+    def __init__(self, class_info, obs_shape=32):
+        self.id = class_info['id']
+        self.limit = class_info['limit']
+        self.parent = class_info['parent']
+        self.room_required = class_info['room_required']
+        self.room_options = class_info['room_options']
+        self.time_options = class_info['time_options']
+        self.action_space = self._actions()
+        self._action_space = Discrete(len(self.action_space), start=0, seed=42)
+        self.observe_space = np.array([self.action_space[i][2] if i<len(self.action_space) else 10 for i in range(obs_shape)], dtype=np.float64) # penalty of each action
+        self.value = len(self.action_space)
+        self.ajuster_action_space = Discrete(self.value, start=1, seed=42)
+        self.candidate = None
+        self.action = None
+        self.include_students = False
+        self.penalty = inf
+        self.rooms = list(set([room_opt['id'] for room_opt in self.room_options]))
+
+    def _actions(self):
+        actions = []
+        if self.room_required:
+            for i in range(len(self.room_options)):
+                p1 = self.room_options[i]['penalty']
+                for j in range(len(self.time_options)):
+                    p2 = self.time_options[j]['penalty']
+                    actions.append((i, j, p1 + p2))
+        else:
+            for j in range(len(self.time_options)):
+                p = self.time_options[j]['penalty']
+                actions.append((-1, j, p))
+        actions = sorted(actions, key=lambda k:k[2])
+        return actions
+    
+    def result(self):
+        if self.action == None:
+            room_id = None
+            topt = None
+        elif self.room_required==False:
+            room_id = None
+            time_option_idx = self.action[1]
+            topt = self.time_options[time_option_idx]
+        else:
+            oid = self.action[0]
+            room_id = self.room_options[oid]['id']
+            time_option_idx = self.action[1]
+            topt = self.time_options[time_option_idx]
+        return {self.id: (topt, self.room_required, room_id, None)}

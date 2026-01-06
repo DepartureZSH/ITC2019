@@ -1,0 +1,1 @@
+Method: Centralized Greedy Constraint Solver
