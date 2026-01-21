@@ -1,0 +1,53 @@
+config:
+  technique: HybridMAPPO
+  author: ZSH
+  institution: UNNC
+  country: China
+  include_students: false
+  report: false
+  output: /home/scxsz1/zsh/Learning/MARL/PSTT/MARL/HybridMAPPO/results
+
+train:
+  env_name: HybridMAPPO
+  device: 'cuda:1'
+  total_episodes: 10
+  QUEUE_MAX_SIZE: 1000
+  insist: 0.75
+  steps_clip: 10
+  CGCS:
+    active: false
+  Random:
+    active: false
+  MIP:
+    active: false
+    reproduction: false
+    epoch: 20
+    Solutions: 200
+    time_limit: 6000
+    Threads: 32
+    MIPGap: 0.05
+    PoolSolutions: 20
+  MAPPO:
+    active: false
+    mappo:
+      gamma: 0.99
+      lmbda: 0.97
+      eps: 0.1
+      hidden_dim: 256
+      actor_lr: 1e-4
+      critic_lr: 1e-3
+  PMAPPO:
+    active: true
+    sched:
+      gamma: 0.95
+      learning_rate: 0.7
+      max_epsilon: 1.0
+      min_epsilon: 0.05
+      decay_rate: 0.001
+    mappo:
+      gamma: 0.99
+      lmbda: 0.97
+      eps: 0.1
+      hidden_dim: 256
+      actor_lr: 1e-4
+      critic_lr: 1e-3

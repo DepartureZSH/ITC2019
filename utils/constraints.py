@@ -596,13 +596,6 @@ class HardConstraints(ConstraintBase):
                 for slots_len, slots in zip(merge_time_len, merge_time_slots):
                     if slots_len > 1 and slots[1] > M: 
                         return True
-                # if MS == '20,9' and "242" in cids and "243" in cids:
-                #     # print("hc ", hc)
-                #     # print("time_options", time_options)
-                #     print("MaxBlock", valid_top, " ", merge_time_len)
-                # for slots_len in merge_time_len:
-                #     if slots_len > M:
-                #         return True
         return False
 
 # ================================================================
@@ -739,9 +732,9 @@ class SoftConstraints(ConstraintBase):
                         _, _, start1, end1 = self.classes[ind1].time_options[oid1]["optional_time_bits"]
                         oid2 = self.classes[ind2].action[1]
                         _, _, start2, end2 = self.classes[ind2].time_options[oid2]["optional_time_bits"]
-                        if start1 <= start2 and end2 <= end1:
+                        if start1 <= start2 and start2 + end2 <= start1 + end1:
                             continue
-                        elif start2 <= start1 and end1 <= end2:
+                        elif start2 <= start1 and start1 + end1 <= start2 + end2:
                             continue
                         else:
                             viol += 1
@@ -1357,9 +1350,11 @@ class SoftConstraints(ConstraintBase):
                 for time_option in time_options:
                     if time_option[0][w] == '1' and time_option[1][d] == '1':
                         dayloads += time_option[3]
-                        if dayloads > S and (dayloads - S) > viol:
-                            viol = dayloads - S
-        return int(viol / max(self.nrWeeks, 1))
+                        if dayloads > S:
+                            viol += dayloads - S
+                        # if time_option[1][d] == '1':
+                        #     print(f"W{w+1}: {dayloads}/{S} slots")
+        return viol / max(self.nrWeeks, 1)
 
     def MaxBreaks(self, sc, RS, cid=None):
         # ∑_w,d max(breaks - R, 0) / nrWeeks，break: gap > S

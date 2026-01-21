@@ -6,6 +6,9 @@ res/
 *backup*/
 output/
 logs/
+*solutions/
+solution*
+infeasible.ilp
 
 # data
 /data/*
@@ -67,3 +70,4 @@ mlruns/
 
 # test folder
 /MARL/test/
+test.py

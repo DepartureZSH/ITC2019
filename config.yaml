@@ -2,27 +2,28 @@ device: cpu
 seed: 42
 
 data:
-  isthrough: true
-  folder: /home/scxsz1/zsh/Learning/MARL/PSTT/data/instances1/run3
-  file: muni-fi-spr17.xml
+  isthrough: false
+  folder: /home/scxsz1/zsh/Learning/MARL/PSTT/data/early
+  file: pu-llr-spr17.xml
 
 method:
-  name: RPMAPPO
+  name: HybridMAPPO
   epoch: 50
+  reproduction: false
   discount: 0.5
   quickrun: false
 
 config:
-  technique: RPMAPPO
+  technique: HybridMAPPO
   author: ZSH
   institution: UNNC
   country: China
   include_students: false
   report: false
-  output: /home/scxsz1/zsh/Learning/MARL/PSTT/MARL/RPMAPPO/results
+  output: /home/scxsz1/zsh/Learning/MARL/PSTT/MARL/HybridMAPPO/results
 
 train:
-  env_name: RPMAPPO
+  env_name: HybridMAPPO
   device: 'cuda:1'
   discount: 0.5 # works when method.name in [CGCS,Random]
   random_warmup: 200
@@ -54,3 +55,11 @@ train:
     hidden_dim: 256
     actor_lr: 1e-4
     critic_lr: 1e-3
+  MIP:
+    max_backtracks: 60
+    time_limit: 6000
+    Threads: 32
+    MIPGap: 0.05
+    PoolSolutions: 10
+  HybridMAPPO:
+    path: /home/scxsz1/zsh/Learning/MARL/PSTT/MARL/HybridMAPPO/config.yaml

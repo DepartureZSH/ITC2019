@@ -17,6 +17,7 @@ from tqdm import tqdm
 from Solution_writter import export_solution_xml
 from validator import report_result
 from tools import tools
+from MARL.HybridMAPPO.tools import tools as HybridMAPPO_tools
 from MARL.test.env import CustomEnvironment
 from MARL.test.network import MAPPO
 
@@ -202,14 +203,14 @@ def Random_train(data_folder, output_folder, fileName, env, model_config, epoche
         validor_result = report_result(out_path)
         logger.info(f"Validation result: {validor_result}")
 
-def startup(data_folder, output_folder, fileName):
+def startup(data_folder, output_folder, fileName, matrix=False):
     pname = fileName.split('.xml')[0]
     # 设置log的格式
     os.makedirs(f"{output_folder}/{pname}", exist_ok=True)
     setup_logger(pname, f"{output_folder}/{pname}/{pname}.log")
     logger = logging.getLogger(pname)
     file = f"{data_folder}/{fileName}"
-    reader = PSTTReader(file)
+    reader = PSTTReader(file, matrix)
     return reader, logger
 
 def main(config):
@@ -348,6 +349,43 @@ def main(config):
             reader, logger = startup(data_folder, output_folder, fileName)
             Tools = tools(logger, config)
             MAPPO_train(reader, logger, Tools, fileName, config, epoches, quickrun)
+    elif config['method']['name'] == "MIP":
+        output_folder = config['config']['output']
+        if config['train']['env_name'] == "MIP-2S" or config['train']['env_name'] == "MIP":
+            from MIP.train import MIP2Step_Solver as MIP_Solver
+        elif config['train']['env_name'] == "MIP-3S":
+            from MIP.train import MIP3Step_Solver as MIP_Solver
+        if config['data']['isthrough']:
+            data_folder = config["data"]["folder"]
+            for fileName in os.listdir(data_folder):
+                if fileName.endswith('.xml'):
+                    reader, logger = startup(data_folder, output_folder, fileName, matrix=True)
+                    Tools = tools(logger, config)
+                    MIP_Solver(reader, logger, Tools, fileName, config)
+        else:
+            data_folder = config["data"]["folder"]
+            fileName = config["data"]["file"]
+            reader, logger = startup(data_folder, output_folder, fileName, matrix=True)
+            Tools = tools(logger, config)
+            MIP_Solver(reader, logger, Tools, fileName, config)
+    elif config['method']['name'] == 'HybridMAPPO':
+        output_folder = config['config']['output']
+        quickrun = config["method"].get("quickrun", False)
+        HybridMAPPO_config = load_cfg(config["train"]["HybridMAPPO"]["path"])
+        from MARL.HybridMAPPO.train import train
+        if config['data']['isthrough']:
+            data_folder = config["data"]["folder"]
+            for fileName in os.listdir(data_folder):
+                if fileName.endswith('.xml'):
+                    reader, logger = startup(data_folder, output_folder, fileName, matrix=True)
+                    Tools = HybridMAPPO_tools(logger, config)
+                    train(reader, logger, Tools, output_folder, fileName, HybridMAPPO_config, quickrun)
+        else:
+            data_folder = config["data"]["folder"]
+            fileName = config["data"]["file"]
+            reader, logger = startup(data_folder, output_folder, fileName, matrix=True)
+            Tools = HybridMAPPO_tools(logger, config)
+            train(reader, logger, Tools, output_folder, fileName, HybridMAPPO_config, quickrun)
 
 if __name__ == "__main__":
     # Load configuration

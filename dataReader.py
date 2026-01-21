@@ -4,7 +4,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 class PSTTReader:
-    def __init__(self, xml_path):
+    def __init__(self, xml_path, matrix=False):
         self.path = pathlib.Path(xml_path)
         if not self.path.exists():
             raise FileNotFoundError(self.path)
@@ -17,6 +17,7 @@ class PSTTReader:
             raise ValueError(f"Unsupported root tag: {self.root.tag}")
         
         # print(f"root : {self.root}")
+        self.matrix = matrix
 
         # 公共元信息
         self.problem_name = None
@@ -100,7 +101,8 @@ class PSTTReader:
             rid = self._to_int(r.attrib["id"])
             rid_to_idx[rid] = i
             cap = self._to_int(r.attrib.get("capacity"), 0)
-            # unavailables = []
+            unavailables = []
+            unavailable_zip = torch.zeros((self.nrWeeks, self.nrDays, self.slotsPerDay), dtype=int)
             unavailables_bits = []
 
             # travel
@@ -114,7 +116,8 @@ class PSTTReader:
 
             # unavailable
             for u in r.findall("unavailable"):
-                # unavailable = torch.zeros((self.nrWeeks, self.nrDays, self.slotsPerDay), dtype=int)
+                if self.matrix:
+                    unavailable = torch.zeros((self.nrWeeks, self.nrDays, self.slotsPerDay), dtype=int)
                 weeks_bits = u.attrib.get("weeks")
                 if weeks_bits is not None:
                     weeks_list = self.bits_to_list(weeks_bits)
@@ -127,18 +130,30 @@ class PSTTReader:
                     w_idx = torch.tensor(weeks_list, dtype=torch.long)
                     d_idx = torch.tensor(days_list, dtype=torch.long)
                     t_idx = torch.arange(start, start + length, dtype=torch.long)
-                    W, D, T = torch.meshgrid(w_idx, d_idx, t_idx, indexing='ij')
-                    # unavailable[W, D, T] = 1
-                    # unavailable[weeks_list, days_list, start: start + length] = 1
-                # unavailables.append(unavailable)
-                unavailables_bits.append((weeks_bits, days_bits, start, length))
-            room = {
-                "id": rid, 
-                "capacity": cap,
-                "unavailables_bits": unavailables_bits,
-                # "unavailables": unavailables,
-                "ocupied": [] # (cid, time_bits, value)
-            }
+                    if self.matrix:
+                        W, D, T = torch.meshgrid(w_idx, d_idx, t_idx, indexing='ij')
+                        unavailable[W, D, T] = 1
+                        # unavailable[weeks_list, days_list, start: start + length] = 1
+                if self.matrix:
+                    unavailable_zip = torch.logical_or(unavailable_zip, unavailable)
+                    unavailables.append(unavailable)
+                    unavailables_bits.append((weeks_bits, days_bits, start, length))
+            if self.matrix:
+                room = {
+                    "id": rid, 
+                    "capacity": cap,
+                    "unavailables_bits": unavailables_bits,
+                    "unavailables": unavailables,
+                    "unavailable_zip": unavailable_zip,
+                    "ocupied": [] # (cid, time_bits, value)
+                }
+            else:
+                room = {
+                    "id": rid, 
+                    "capacity": cap,
+                    "unavailables_bits": unavailables_bits,
+                    "ocupied": [] # (cid, time_bits, value)
+                }
             result[r.attrib["id"]] = room
         return result, travel, rid_to_idx
 
@@ -196,7 +211,8 @@ class PSTTReader:
 
                         # 可选时间（含 penalty）
                         for tnode in cl.findall("time"):
-                            # optional_time = torch.zeros((self.nrWeeks, self.nrDays, self.slotsPerDay), dtype=int)
+                            if self.matrix:
+                                optional_time = torch.zeros((self.nrWeeks, self.nrDays, self.slotsPerDay), dtype=int)
                             weeks_bits = tnode.attrib.get("weeks")
                             if weeks_bits is not None:
                                 weeks_list = self.bits_to_list(weeks_bits)
@@ -209,14 +225,23 @@ class PSTTReader:
                                 w_idx = torch.tensor(weeks_list, dtype=torch.long)
                                 d_idx = torch.tensor(days_list, dtype=torch.long)
                                 t_idx = torch.arange(start, start + length, dtype=torch.long)
-                                W, D, T = torch.meshgrid(w_idx, d_idx, t_idx, indexing='ij')
-                                # optional_time[W, D, T] = 1
-                                # optional_time[weeks_list, days_list, start: start + length] = 1
-                            cdef["time_options"].append({
-                                "optional_time_bits": (weeks_bits, days_bits, start, length),
-                                # "optional_time":optional_time,
-                                "penalty":self._to_int(tnode.attrib.get("penalty"), 0)
-                            })
+                                if self.matrix:
+                                    W, D, T = torch.meshgrid(w_idx, d_idx, t_idx, indexing='ij')
+                                    optional_time[W, D, T] = 1
+                                    # print("optional_time shape: ", optional_time.shape)
+                                    # print(f"weeks_list : {weeks_list}, days_list: {days_list}, start: start + length: {start}: {start + length}")
+                                    # optional_time[weeks_list, days_list, start: start + length] = 1
+                            if self.matrix:
+                                cdef["time_options"].append({
+                                    "optional_time_bits": (weeks_bits, days_bits, start, length),
+                                    "optional_time":optional_time,
+                                    "penalty":self._to_int(tnode.attrib.get("penalty"), 0)
+                                })
+                            else:
+                                cdef["time_options"].append({
+                                    "optional_time_bits": (weeks_bits, days_bits, start, length),
+                                    "penalty":self._to_int(tnode.attrib.get("penalty"), 0)
+                                })
                         # Sort time_options by penalty
                         cdef["time_options"].sort(key=lambda x: x["penalty"])
                         subpart["classes"][cl_id] = cdef
@@ -467,8 +492,11 @@ if __name__ == "__main__":
     # 读取单个 XML（既可是 problem.xml，也可直接是 solution.xml）
     # file = "/home/unnc/ZSH/Projects/itc2019/data/late/bet-spr18.xml"
     file = f'{config["data"]["folder"]}/{config["data"]["file"]}'
-    reader = PSTTReader(file)
+    reader = PSTTReader(file, matrix=False)
     reader.describe_PSTT()
+    class1 = reader.classes['3']
+    print("room_options:", len(class1['room_options']))
+    print("time_options:", len(class1['time_options']))
     # print(reader.checkid())
 
 
